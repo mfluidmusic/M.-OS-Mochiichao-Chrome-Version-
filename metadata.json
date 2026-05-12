@@ -1,0 +1,9 @@
+{
+  "name": "Remix: M. OS Mochiichao Chrome Version 2.0",
+  "description": "An autonomous 3D AI companion Tamagotchi (Bone Version). Powered by Gemini. Features Ancient Cave, Red Desert, and Rainforest biomes.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [],
+  "ai_write_status": "CONFIRMED_ACTIVE"
+}

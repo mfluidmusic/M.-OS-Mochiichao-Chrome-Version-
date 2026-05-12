@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@utility scrollbar-hide {
+  /* Firefox */
+  scrollbar-width: none;
+  /* Safari and Chrome */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility mask-image-b {
+  mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
+}

@@ -1,0 +1,24 @@
+{
+  "name": "M. OS Bone Version",
+  "directories": [
+    "src/components",
+    "src/dynamic_components",
+    "src/quarantine"
+  ],
+  "core_files": {
+    "server.ts": "The backend Express API. Handles endpoints like /api/interact and /api/weaver.",
+    "src/App.tsx": "Main application file handling state, microphone stt, stasis overlay, and chat.",
+    "src/components/Scene.tsx": "Main 3D Scene container handling environments (Void, Neon City, Junkyard, Rainforest, Desert, Ancient Cave).",
+    "src/components/Mochiichao.tsx": "The 3D AI avatar.",
+    "src/components/EnvironmentObjects.tsx": "Renders objects spawned into the environment."
+  },
+  "state_variables": {
+    "messages": "Array of conversation history.",
+    "mochiEmotion": "Current emotion to display on avatar.",
+    "isUpgrading": "Set to true during surgery (write_code). Freezes physics and displays stasis overlay."
+  },
+  "rules": {
+    "dynamic_components": "Only write new UI fragments to src/dynamic_components/.",
+    "syntax": "Ensure all brackets match. Do not overwrite App.tsx."
+  }
+}

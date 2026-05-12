@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M. OS: Mochiichao Combat Simulator</title>
+    <style>
+        :root {
+            --ui-bg: #0a0a0f;
+            --ui-border: #00ffcc;
+            --ui-danger: #ff0055;
+            --text-main: #e0f8f5;
+            --text-dim: #4a7c74;
+        }
+        body {
+            background-color: #050508;
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            width: 800px;
+            background: #000;
+            border: 2px solid var(--ui-border);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2), inset 0 0 15px rgba(0, 255, 204, 0.1);
+        }
+        /* Battle Scene - Cyber Void */
+        #battle-scene {
+            height: 350px;
+            position: relative;
+            background: radial-gradient(circle at center, #112233 0%, #000000 100%);
+            /* Procedural Cyber Grid */
+            background-image: 
+                linear-gradient(rgba(0, 255, 204, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 204, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center bottom;
+            transform: perspective(500px) rotateX(10deg);
+            transform-origin: bottom;
+        }
+        #canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .mochii-sprite {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            bottom: 60px;
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 0 15px currentColor;
+        }
+        /* Blocky, digital representation for the prototype */
+        #player-sprite { left: 100px; background-color: #00ffcc; color: #00ffcc; clip-path: polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%); }
+        #enemy-sprite { right: 100px; background-color: #ff3333; color: #ff3333; bottom: 120px; clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%); }
+        
+        .hud {
+            position: absolute;
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid var(--ui-border);
+            padding: 10px;
+            width: 220px;
+            z-index: 5;
+            backdrop-filter: blur(4px);
+        }
+        #enemy-hud { top: 20px; left: 20px; border-color: var(--ui-danger); }
+        #player-hud { bottom: 40px; right: 20px; }
+        
+        .hp-bar-bg { width: 100%; height: 8px; background: #222; margin-top: 8px; position: relative; border: 1px solid #444; }
+        .hp-bar-fill { height: 100%; background: #00ffcc; width: 100%; transition: width 0.3s ease-out, background-color 0.3s; }
+        
+        .status-badge { display: inline-block; padding: 2px 4px; font-size: 10px; font-weight: bold; margin-left: 5px; border-radius: 2px; }
+        .status-brn { background: #ff5500; color: white; }
+        .status-psn { background: #aa00ff; color: white; }
+        .status-par { background: #ffcc00; color: black; }
+
+        /* UI Panels */
+        #ui-panel {
+            height: 200px;
+            background: var(--ui-bg);
+            border-top: 2px solid var(--ui-border);
+            display: flex;
+        }
+        #log-window {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            border-right: 1px solid var(--ui-border);
+            font-size: 13px;
+            line-height: 1.5;
+            color: #aaddcc;
+        }
+        #log-window span.highlight { color: #fff; font-weight: bold; }
+        #log-window span.danger { color: var(--ui-danger); }
+        
+        #action-menu {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 15px;
+        }
+        button {
+            background: rgba(0, 255, 204, 0.05);
+            color: var(--text-main);
+            border: 1px solid var(--text-dim);
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.1s;
+        }
+        button:hover:not(:disabled) { 
+            background: rgba(0, 255, 204, 0.2); 
+            border-color: var(--ui-border); 
+            box-shadow: 0 0 10px rgba(0,255,204,0.3);
+        }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Type Colors for Buttons */
+        .type-aqua { border-bottom: 3px solid #00aaff !important; }
+        .type-flame { border-bottom: 3px solid #ff4400 !important; }
+        .type-flora { border-bottom: 3px solid #00ff55 !important; }
+        .type-umbral { border-bottom: 3px solid #aa00ff !important; }
+        .type-chrome { border-bottom: 3px solid #cccccc !important; }
+
+        /* Subsystems Menu */
+        #systems-menu {
+            width: 800px;
+            margin-top: 20px;
+            background: var(--ui-bg);
+            border: 1px solid var(--text-dim);
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        #systems-menu h3 { margin-top: 0; color: var(--ui-border); text-transform: uppercase; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h2 style="text-transform: uppercase; letter-spacing: 2px;">M. OS // Combat Execution Protocol</h2>
+    
+    <div id="game-container">
+        <div id="battle-scene">
+            <canvas id="canvas-overlay" width="800" height="350"></canvas>
+            
+            <div id="enemy-hud" class="hud">
+                <div id="enemy-name" style="font-weight:bold;">Rogue Tyrage <span id="enemy-status"></span></div>
+                <div style="font-size: 10px; color: #888; margin-top: 2px;">Lv. 45 // FLAME</div>
+                <div class="hp-bar-bg"><div id="enemy-hp" class="hp-bar-fill" style="background:var(--ui-danger);"></div></div>
+            </div>
+            <div id="enemy-sprite" class="mochii-sprite"></div>
+
+            <div id="player-hud" class="hud">
+                <div id="player-name" style="font-weight:bold;">Razorgater <span id="player-status"></span></div>
+                <div style="font-size: 10px; color: #888; margin-top: 2px;">Lv. 42 // CHROME-AQUA</div>
+                <div class="hp-bar-bg"><div id="player-hp" class="hp-bar-fill"></div></div>
+            </div>
+            <div id="player-sprite" class="mochii-sprite"></div>
+        </div>
+
+        <div id="ui-panel">
+            <div id="log-window"></div>
+            <div id="action-menu">
+                </div>
+        </div>
+    </div>
+
+    <div id="systems-menu">
+        <h3>Overclock Drives (Inventory)</h3>
+        <div id="scroll-list"></div>
+    </div>
+
+<script>
+/**
+ * 1. THE DATA TIER (M. OS Mapped Schema)
+ */
+const TYPES = {
+    CHROME: 'Chrome', AQUA: 'Aqua', FLAME: 'Flame', FLORA: 'Flora', UMBRAL: 'Umbral', MYTHIC: 'Mythic'
+};
+
+const CATEGORY = { PHYSICAL: 'Physical', SPECIAL: 'Special', STATUS: 'Status' };
+
+// M. OS Type Effectiveness Matrix
+const TYPE_CHART = {
+    [TYPES.AQUA]:  { [TYPES.FLAME]: 2.0, [TYPES.FLORA]: 0.5, [TYPES.AQUA]: 0.5 },
+    [TYPES.FLAME]: { [TYPES.FLORA]: 2.0, [TYPES.AQUA]: 0.5,  [TYPES.CHROME]: 2.0, [TYPES.FLAME]: 0.5 },
+    [TYPES.FLORA]: { [TYPES.AQUA]: 2.0,  [TYPES.FLAME]: 0.5, [TYPES.FLORA]: 0.5 },
+    [TYPES.UMBRAL]:{ [TYPES.MYTHIC]: 2.0, [TYPES.UMBRAL]: 0.5 },
+    [TYPES.CHROME]:{ [TYPES.FLORA]: 1.0, [TYPES.FLAME]: 0.5, [TYPES.CHROME]: 0.5 }
+};
+
+// M. OS Move Database
+const MOVES = {
+    "chrome_slash": { name: "Chrome Slash", type: TYPES.CHROME, category: CATEGORY.PHYSICAL, power: 70, acc: 100, 
+        anim: { type: 'melee_slash', colors:['#ffffff', '#cccccc'], count: 12 } },
+    "hydro_shockwave": { name: "Hydro Shockwave", type: TYPES.AQUA, category: CATEGORY.SPECIAL, power: 90, acc: 100, 
+        effect: { chance: 10, statDrop: { stat: 'spe', amount: 1 } },
+        anim: { type: 'wave', colors: ['#00aaff', '#0044ff'], radius: 60 } },
+    "flame_dash": { name: "Flame Dash", type: TYPES.FLAME, category: CATEGORY.PHYSICAL, power: 85, acc: 95, 
+        effect: { chance: 20, status: 'BRN' },
+        anim: { type: 'erratic_projectile', colors: ['#ff4400', '#ffaa00'], size: 10 } },
+    "inferno_compile": { name: "Inferno Compile", type: TYPES.FLAME, category: CATEGORY.SPECIAL, power: 110, acc: 85, 
+        effect: { chance: 10, status: 'BRN' },
+        anim: { type: 'beam', colors: ['#ff0000', '#ff5500', '#ffff00'], duration: 35 } },
+    "malware_taunt": { name: "Malware Taunt", type: TYPES.UMBRAL, category: CATEGORY.STATUS, power: 0, acc: 100, 
+        effect: { forceStatus: 'TAUNT' },
+        anim: { type: 'status_up', colors: ['#aa00ff', '#550088'] } }
+};
+
+const INVENTORY =[
+    { id: "DRV-01", move: "chrome_slash" },
+    { id: "DRV-02", move: "malware_taunt" }
+];
+
+/**
+ * 2. M. OS ENTITY DEFINITIONS
+ */
+class Mochiichao {
+    constructor(name, types, level, baseStats, moves, isPlayer = false) {
+        this.name = name;
+        this.types = types;
+        this.level = level;
+        this.baseStats = baseStats;
+        
+        // Classic ROM Math Translation
+        this.maxHp = Math.floor(10 + (this.level / 100) * (this.baseStats.hp * 2) + this.level);
+        this.hp = this.maxHp;
+        
+        this.stats = {
+            atk: Math.floor(5 + (this.level / 100) * (this.baseStats.atk * 2)),
+            def: Math.floor(5 + (this.level / 100) * (this.baseStats.def * 2)),
+            spA: Math.floor(5 + (this.level / 100) * (this.baseStats.spA * 2)),
+            spD: Math.floor(5 + (this.level / 100) * (this.baseStats.spD * 2)),
+            spe: Math.floor(5 + (this.level / 100) * (this.baseStats.spe * 2))
+        };
+        
+        this.stages = { atk: 0, def: 0, spA: 0, spD: 0, spe: 0 };
+        this.status = null; 
+        
+        this.moves = moves;
+        this.isPlayer = isPlayer;
+        
+        this.x = isPlayer ? 160 : 640;
+        this.y = isPlayer ? 260 : 170;
+    }
+
+    getStat(statName) {
+        let stage = this.stages[statName];
+        let multiplier = stage >= 0 ? (2 + stage) / 2 : 2 / (2 - stage);
+        let val = Math.floor(this.stats[statName] * multiplier);
+        if (this.status === 'BRN' && statName === 'atk') val = Math.floor(val / 2);
+        return val;
+    }
+
+    learnMove(moveId, slot) {
+        this.moves[slot] = moveId;
+        updateUI();
+    }
+}
+
+// Instantiate Mochiichao
+const playerEntity = new Mochiichao("Razorgater", [TYPES.CHROME, TYPES.AQUA], 42, 
+    {hp: 85, atk: 105, def: 100, spA: 65, spD: 70, spe: 80}, ["chrome_slash", "hydro_shockwave"], true);
+
+const enemyEntity = new Mochiichao("Tyrage", [TYPES.FLAME], 45, 
+    {hp: 95, atk: 120, def: 80, spA: 100, spD: 70, spe: 95}, ["flame_dash", "inferno_compile"], false);
+
+/**
+ * 3. THE COMBAT ENGINE
+ */
+let battleLock = false;
+
+function logMsg(msg, isDanger = false) {
+    const log = document.getElementById('log-window');
+    log.innerHTML += `<div class="${isDanger ? 'danger' : ''}">> ${msg}</div>`;
+    log.scrollTop = log.scrollHeight;
+}
+
+function getEffectiveness(moveType, targetTypes) {
+    let multiplier = 1.0;
+    targetTypes.forEach(t => {
+        if (TYPE_CHART[moveType] && TYPE_CHART[moveType][t]) {
+            multiplier *= TYPE_CHART[moveType][t];
+        }
+    });
+    return multiplier;
+}
+
+async function executeTurn(playerMoveId) {
+    if (battleLock) return;
+    battleLock = true;
+    
+    // AI Decision (Random for prototype)
+    const enemyMoveId = enemyEntity.moves[Math.floor(Math.random() * enemyEntity.moves.length)];
+    
+    // Speed Priority
+    const pSpeed = playerEntity.getStat('spe');
+    const eSpeed = enemyEntity.getStat('spe');
+    
+    let first = pSpeed >= eSpeed ? { attacker: playerEntity, defender: enemyEntity, moveId: playerMoveId } : { attacker: enemyEntity, defender: playerEntity, moveId: enemyMoveId };
+    let second = pSpeed >= eSpeed ? { attacker: enemyEntity, defender: playerEntity, moveId: enemyMoveId } : { attacker: playerEntity, defender: enemyEntity, moveId: playerMoveId };
+
+    await performMove(first.attacker, first.defender, first.moveId);
+    if (first.defender.hp > 0 && first.attacker.hp > 0) {
+        await performMove(second.attacker, second.defender, second.moveId);
+    }
+    
+    applyEndOfTurnStatus(playerEntity);
+    applyEndOfTurnStatus(enemyEntity);
+    
+    updateHUD();
+    battleLock = false;
+}
+
+async function performMove(attacker, defender, moveId) {
+    const move = MOVES[moveId];
+    logMsg(`<span class="highlight">${attacker.name}</span> executed [${move.name}]!`);
+    
+    await playVoxelAnimation(attacker, defender, move.anim);
+    
+    if (move.category === CATEGORY.STATUS) {
+        if (move.effect && move.effect.forceStatus) {
+            defender.status = move.effect.forceStatus;
+            logMsg(`System Alert: ${defender.name} afflicted with ${defender.status}!`, true);
+        }
+        return;
+    }
+
+    // Classic Damage Math Engine
+    const attackStat = move.category === CATEGORY.PHYSICAL ? attacker.getStat('atk') : attacker.getStat('spA');
+    const defenseStat = move.category === CATEGORY.PHYSICAL ? defender.getStat('def') : defender.getStat('spD');
+    
+    let baseDamage = Math.floor((Math.floor((2 * attacker.level) / 5 + 2) * move.power * attackStat) / defenseStat);
+    baseDamage = Math.floor(baseDamage / 50) + 2;
+    
+    const isSTAB = attacker.types.includes(move.type) ? 1.5 : 1;
+    const typeMod = getEffectiveness(move.type, defender.types);
+    const crit = Math.random() < 0.0625 ? 1.5 : 1;
+    const randomRoll = (Math.floor(Math.random() * 16) + 85) / 100;
+    
+    let finalDamage = Math.floor(baseDamage * isSTAB * typeMod * crit * randomRoll);
+    
+    defender.hp = Math.max(0, defender.hp - finalDamage);
+    
+    if (crit > 1) logMsg(`Critical Process! Data breached!`, true);
+    if (typeMod > 1) logMsg(`Super Effective output!`);
+    if (typeMod < 1) logMsg(`Ineffective output...`);
+    
+    if (move.effect && defender.hp > 0 && !defender.status && Math.random() < (move.effect.chance / 100)) {
+        defender.status = move.effect.status;
+        logMsg(`System Alert: ${defender.name} afflicted with ${defender.status}!`, true);
+    }
+    
+    updateHUD();
+    
+    // UI Recoil / Hit-stop
+    const spriteId = attacker.isPlayer ? 'enemy-sprite' : 'player-sprite';
+    const el = document.getElementById(spriteId);
+    el.style.transform = 'translateX(15px) skewX(-10deg)';
+    el.style.filter = 'invert(1)';
+    setTimeout(() => { el.style.transform = 'translateX(-10px) skewX(10deg)'; }, 50);
+    setTimeout(() => { el.style.transform = 'translateX(0) skewX(0)'; el.style.filter = 'none'; }, 150);
+    
+    await new Promise(r => setTimeout(r, 600));
+}
+
+function applyEndOfTurnStatus(entity) {
+    if (entity.hp <= 0) return;
+    if (entity.status === 'BRN' || entity.status === 'PSN') {
+        const dmg = Math.floor(entity.maxHp / 8);
+        entity.hp = Math.max(0, entity.hp - dmg);
+        logMsg(`${entity.name} took damage from ${entity.status} corruption!`, true);
+    }
+}
+
+/**
+ * 4. PARAMETRIC VOXEL ANIMATION ENGINE
+ * Transformed from circles to sharp digital squares/voxels
+ */
+const canvas = document.getElementById('canvas-overlay');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+class VoxelParticle {
+    constructor(x, y, vx, vy, color, life, size) {
+        this.x = x; this.y = y;
+        this.vx = vx; this.vy = vy;
+        this.color = color;
+        this.life = life; this.maxLife = life;
+        this.size = size;
+        this.angle = Math.random() * Math.PI;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life--;
+        this.angle += 0.1;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.fillStyle = this.color;
+        // Draw sharp digital voxels instead of soft circles
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+function playVoxelAnimation(attacker, defender, animConfig) {
+    return new Promise(resolve => {
+        let frameCount = 0;
+        const dx = defender.x - attacker.x;
+        const dy = defender.y - attacker.y;
+        const distance = Math.hypot(dx, dy);
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            frameCount++;
+            
+            if (animConfig.type === 'erratic_projectile' && frameCount < 15) {
+                const c = animConfig.colors[Math.floor(Math.random() * animConfig.colors.length)];
+                particles.push(new VoxelParticle(attacker.x + (dx * (frameCount/15)), attacker.y + (dy * (frameCount/15)) + (Math.random()*40-20), dirX*2, dirY*2, c, 15, animConfig.size));
+            } 
+            else if (animConfig.type === 'beam' && frameCount < animConfig.duration) {
+                const c = animConfig.colors[Math.floor(Math.random() * animConfig.colors.length)];
+                particles.push(new VoxelParticle(attacker.x, attacker.y, (dirX * 20) + (Math.random()-0.5)*2, (dirY * 20) + (Math.random()-0.5)*2, c, 20, Math.random() * 10 + 5));
+            }
+            else if (animConfig.type === 'wave' && frameCount < 25) {
+                ctx.strokeStyle = animConfig.colors[0];
+                ctx.lineWidth = 3;
+                ctx.strokeRect(attacker.x - (frameCount*4), attacker.y - (frameCount*4), frameCount*8, frameCount*8);
+            }
+            else if (animConfig.type === 'melee_slash' && frameCount === 8) {
+                for(let i=0; i<25; i++) {
+                    particles.push(new VoxelParticle(defender.x, defender.y, (Math.random()-0.5)*15, (Math.random()-0.5)*15, animConfig.colors[Math.floor(Math.random() * animConfig.colors.length)], 20, 8));
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw(ctx);
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            if (particles.length > 0 || frameCount < 30) {
+                requestAnimationFrame(animate);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                resolve();
+            }
+        }
+        animate();
+    });
+}
+
+/**
+ * 5. UI CONTROLLERS & M. OS HUD
+ */
+function updateHUD() {
+    const pPercent = (playerEntity.hp / playerEntity.maxHp) * 100;
+    const ePercent = (enemyEntity.hp / enemyEntity.maxHp) * 100;
+    
+    const pBar = document.getElementById('player-hp');
+    const eBar = document.getElementById('enemy-hp');
+    
+    pBar.style.width = `${pPercent}%`;
+    eBar.style.width = `${ePercent}%`;
+    
+    // Dynamic Health Colors
+    pBar.style.background = pPercent > 50 ? '#00ffcc' : pPercent > 20 ? '#ffcc00' : '#ff0055';
+    eBar.style.background = ePercent > 50 ? '#00ffcc' : ePercent > 20 ? '#ffcc00' : '#ff0055';
+    
+    // Low Health Pulse
+    document.getElementById('player-hud').style.boxShadow = pPercent <= 20 ? '0 0 15px #ff0055' : 'none';
+    
+    document.getElementById('player-status').innerHTML = playerEntity.status ? `<span class="status-badge status-${playerEntity.status.toLowerCase()}">${playerEntity.status}</span>` : "";
+    document.getElementById('enemy-status').innerHTML = enemyEntity.status ? `<span class="status-badge status-${enemyEntity.status.toLowerCase()}">${enemyEntity.status}</span>` : "";
+    
+    if (playerEntity.hp <= 0) logMsg("SYSTEM FAILURE: Razorgater has been deleted.", true);
+    if (enemyEntity.hp <= 0) logMsg("COMBAT RESOLVED: Rogue Tyrage data purged.");
+}
+
+function updateUI() {
+    const menu = document.getElementById('action-menu');
+    menu.innerHTML = "";
+    
+    playerEntity.moves.forEach(moveId => {
+        const move = MOVES[moveId];
+        const btn = document.createElement('button');
+        btn.innerText = `[ ${move.name} ]`;
+        btn.className = `type-${move.type.toLowerCase()}`;
+        btn.onclick = () => executeTurn(moveId);
+        menu.appendChild(btn);
+    });
+    
+    const scrollList = document.getElementById('scroll-list');
+    scrollList.innerHTML = "";
+    INVENTORY.forEach(item => {
+        const moveData = MOVES[item.move];
+        const btn = document.createElement('button');
+        btn.style.marginRight = "8px";
+        btn.innerText = `Install: ${item.id}`;
+        btn.onclick = () => {
+            playerEntity.learnMove(item.move, 0); // Replace slot 0
+            logMsg(`Installed ${item.id}. Razorgater equipped [${moveData.name}].`);
+        };
+        scrollList.appendChild(btn);
+    });
+}
+
+updateUI();
+updateHUD();
+logMsg("WARNING: Rogue Tyrage intercepted in sector 7!");
+
+</script>
+</body>
+</html>
